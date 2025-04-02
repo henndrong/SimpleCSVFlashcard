@@ -300,7 +300,11 @@ if filtered_df is not None and not filtered_df.empty:
 
         if st.session_state.show_feedback:
             user_answer = st.session_state.user_answer
-            user_answers_set = set(user_answer) if isinstance(user_answer, list) else {user_answer}
+            # Handle potential None or unusual values in user_answer
+            if user_answer is None:
+                user_answers_set = set()
+            else:
+                user_answers_set = set(user_answer) if isinstance(user_answer, list) else {user_answer}
 
             is_correct = (user_answers_set == correct_answers_set)
             correct_answer_display = ", ".join(sorted(list(correct_answers_set)))
@@ -308,7 +312,12 @@ if filtered_df is not None and not filtered_df.empty:
             if is_correct:
                 st.success(f"Correct! 🎉 The answer is: **{correct_answer_display}**")
             else:
-                chosen_display = ", ".join(sorted(list(user_answers_set)))
+                # Safely convert user_answers_set to a display string
+                if user_answers_set:
+                    # Convert all elements to strings before sorting to avoid type errors
+                    chosen_display = ", ".join(sorted(str(ans) for ans in user_answers_set))
+                else:
+                    chosen_display = "No answer provided"
                 st.error(f"Incorrect. 😥 You chose: **{chosen_display}**. The correct answer is: **{correct_answer_display}**")
 
         # Display Score in Sidebar

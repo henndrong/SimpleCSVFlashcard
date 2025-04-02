@@ -32,8 +32,12 @@
 - Initial project setup and documentation creation.
 - Development of the first version of `app.py`.
 - User feedback received: Switch data source to PDF, add chapter selection.
+- Enhanced `app.py` with chapter selection and multi-select question support.
+- Fixed error in feedback display when user submits certain answers, particularly handling edge cases in user_answers_set.
 
 ## User Feedback Integration and Its Impact on Development
 - The core data source is changing from `iot_flashcards.csv` to `IOT MCQ.pdf` (processed into `iot_flashcards_v2.csv`).
-- Chapter selection functionality will be added to the UI and filtering logic.
-- Backward navigation is being considered as an enhancement.
+- Chapter selection functionality has been added to the UI and filtering logic.
+- Multi-select question support has been implemented.
+- Error handling has been improved to prevent crashes when displaying feedback, particularly with the new multi-select functionality.
+- The application is now ready for deployment to enable mobile and laptop access.
