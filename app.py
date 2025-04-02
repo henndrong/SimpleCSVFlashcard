@@ -234,31 +234,45 @@ if filtered_df is not None and not filtered_df.empty:
             if f"prev_selection_{actual_card_index}" not in st.session_state:
                 st.session_state[f"prev_selection_{actual_card_index}"] = None
             
-            # Calculate default index for the radio button
-            try:
-                default_index = options.index(st.session_state.current_selection) if st.session_state.current_selection in options else 0
-            except (ValueError, IndexError):
-                default_index = 0
-            
-            # Display the radio button
-            selected_option = st.radio(
-                "Choose your answer:",
-                options,
-                index=default_index,
-                key=radio_key,
-                disabled=st.session_state.show_feedback
-            )
-            
-            # Check if selection has changed and update
-            if selected_option != st.session_state[f"prev_selection_{actual_card_index}"]:
-                # Store the new selection in regular current_selection
-                st.session_state.current_selection = selected_option
-                # Update the previous selection tracker
-                st.session_state[f"prev_selection_{actual_card_index}"] = selected_option
+            # For single-option questions, auto-select it
+            if len(options) == 1:
+                # If there's only one option, auto-select it
+                st.session_state.current_selection = options[0]
+                st.radio(
+                    "Choose your answer (auto-selected as there's only one option):",
+                    options,
+                    index=0,
+                    key=radio_key,
+                    disabled=st.session_state.show_feedback
+                )
+                # Make sure we also update the previous selection tracker
+                st.session_state[f"prev_selection_{actual_card_index}"] = options[0]
+            else:
+                # Calculate default index for the radio button
+                try:
+                    default_index = options.index(st.session_state.current_selection) if st.session_state.current_selection in options else 0
+                except (ValueError, IndexError):
+                    default_index = 0
                 
-                # Only rerun if this isn't the initial load
-                if st.session_state[f"prev_selection_{actual_card_index}"] is not None:
-                    st.rerun()
+                # Display the radio button
+                selected_option = st.radio(
+                    "Choose your answer:",
+                    options,
+                    index=default_index,
+                    key=radio_key,
+                    disabled=st.session_state.show_feedback
+                )
+                
+                # Check if selection has changed and update
+                if selected_option != st.session_state[f"prev_selection_{actual_card_index}"]:
+                    # Store the new selection in regular current_selection
+                    st.session_state.current_selection = selected_option
+                    # Update the previous selection tracker
+                    st.session_state[f"prev_selection_{actual_card_index}"] = selected_option
+                    
+                    # Only rerun if this isn't the initial load
+                    if st.session_state[f"prev_selection_{actual_card_index}"] is not None:
+                        st.rerun()
 
         # --- Buttons and Feedback Logic ---
         col1, col2 = st.columns([1, 5])
