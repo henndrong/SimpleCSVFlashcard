@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import random
 import ast # For safely evaluating string representations if needed
+import hashlib
 
 # --- Configuration ---
 DATA_FILE = 'iot_flashcards_v2.csv' # Updated data file
@@ -151,6 +152,13 @@ selected_chapters = st.sidebar.multiselect(
     key="chapter_select"
 )
 
+st.sidebar.header("Options")
+randomize_options = st.sidebar.checkbox(
+    "Randomize Options",
+    value=False,
+    key="randomize_options"
+)
+
 # Detect if chapter selection changed
 chapters_changed = False
 if 'selected_chapters' in st.session_state and set(selected_chapters) != set(st.session_state.selected_chapters):
@@ -186,6 +194,11 @@ if filtered_df is not None and not filtered_df.empty:
         is_multi_select = MULTI_ANSWER_SEP in correct_answers_raw
         correct_answers_set = set(ans.strip() for ans in correct_answers_raw.split(MULTI_ANSWER_SEP)) if is_multi_select else {correct_answers_raw.strip()}
 
+        if st.session_state.randomize_options:
+            # Create a copy of the options list to avoid modifying the original DataFrame
+            options = options[:]
+            random.shuffle(options)
+
         # --- Input Widget (Radio or Multiselect) ---
         answer_key = f"answer_{actual_card_index}"
         widget_key = f"input_{actual_card_index}" # Unique key per card
@@ -196,35 +209,37 @@ if filtered_df is not None and not filtered_df.empty:
                 st.session_state.current_selection = []
             
             # Create a callback function for each option that directly manages the selection state
-            def create_checkbox_callback(opt):
-                checkbox_key = f"cb_{opt}_{actual_card_index}"
-                
+            def create_checkbox_callback(opt, widget_key):
+                # Create a unique hash for the option string
+                option_hash = hashlib.md5(opt.encode()).hexdigest()
+                checkbox_key = f"cb_{option_hash}_{widget_key}"
+
                 # Define what happens when this specific checkbox changes
                 def on_change():
                     is_checked = st.session_state[checkbox_key]
                     # Make a copy of the current selection to avoid reference issues
                     current = list(st.session_state.current_selection) if isinstance(st.session_state.current_selection, list) else []
-                    
+
                     if is_checked and opt not in current:
                         current.append(opt)
                     elif not is_checked and opt in current:
                         current.remove(opt)
-                        
+
                     st.session_state.current_selection = current
-                
+
                 return checkbox_key, on_change
-            
+
             # Display each option as a checkbox with its own callback
             for option in options:
-                checkbox_key, callback_fn = create_checkbox_callback(option)
+                checkbox_key, callback_fn = create_checkbox_callback(option, widget_key)
                 is_selected = option in st.session_state.current_selection
-                
+
                 st.checkbox(
                     option,
                     value=is_selected,
                     key=checkbox_key,
                     disabled=st.session_state.show_feedback,
-                    on_change=callback_fn
+                    on_change=callback_fn,
                 )
         else:
             # Radio buttons for single select with improved change detection
@@ -297,6 +312,10 @@ if filtered_df is not None and not filtered_df.empty:
                     st.session_state.user_answer = None
                     st.session_state.show_feedback = False
                     st.session_state.current_selection = None
+                    # Clear checkbox-related keys
+                    for key in st.session_state.keys():
+                        if key.startswith("cb_"):
+                            del st.session_state[key]
                     st.rerun()  # Force rerun to update the page immediately
 
         if not st.session_state.show_feedback and submit_button:
