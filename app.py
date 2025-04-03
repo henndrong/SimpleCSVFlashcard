@@ -99,6 +99,8 @@ def reset_quiz_state(flashcards_df, selected_chapters):
     st.session_state.total_answered = 0
     # Clear previous selections (important for multiselect)
     st.session_state.current_selection = None
+    # Clear randomized options for the new card/quiz
+    st.session_state.current_randomized_options = None
 
 
 # --- Initialize State ---
@@ -132,6 +134,8 @@ def initialize_state(flashcards_df):
          st.session_state.selected_chapters = st.session_state.available_chapters # Default to all chapters
     if 'current_selection' not in st.session_state: # Stores the current radio/multiselect choice before submission
         st.session_state.current_selection = None
+    if 'current_randomized_options' not in st.session_state: # Stores the shuffled options for the current card
+        st.session_state.current_randomized_options = None
 
 
 # --- Main App Logic ---
@@ -194,10 +198,21 @@ if filtered_df is not None and not filtered_df.empty:
         is_multi_select = MULTI_ANSWER_SEP in correct_answers_raw
         correct_answers_set = set(ans.strip() for ans in correct_answers_raw.split(MULTI_ANSWER_SEP)) if is_multi_select else {correct_answers_raw.strip()}
 
+        # Determine the options to display (original or randomized)
+        display_options = options # Default to original order
         if st.session_state.randomize_options:
-            # Create a copy of the options list to avoid modifying the original DataFrame
-            options = options[:]
-            random.shuffle(options)
+            if st.session_state.current_randomized_options is None:
+                # Shuffle only if not already shuffled for this card
+                shuffled_options = options[:] # Create a copy
+                random.shuffle(shuffled_options)
+                st.session_state.current_randomized_options = shuffled_options
+            # Use the stored shuffled options if they exist
+            if st.session_state.current_randomized_options:
+                 display_options = st.session_state.current_randomized_options
+        else:
+             # If randomization is turned off, ensure we clear any stored random options
+             st.session_state.current_randomized_options = None
+
 
         # --- Input Widget (Radio or Multiselect) ---
         answer_key = f"answer_{actual_card_index}"
@@ -230,9 +245,10 @@ if filtered_df is not None and not filtered_df.empty:
                 return checkbox_key, on_change
 
             # Display each option as a checkbox with its own callback
-            for option in options:
+            for option in display_options: # Use the potentially shuffled options
                 checkbox_key, callback_fn = create_checkbox_callback(option, widget_key)
-                is_selected = option in st.session_state.current_selection
+                # Check selection against the potentially shuffled list
+                is_selected = isinstance(st.session_state.current_selection, list) and option in st.session_state.current_selection
 
                 st.checkbox(
                     option,
@@ -250,12 +266,12 @@ if filtered_df is not None and not filtered_df.empty:
                 st.session_state[f"prev_selection_{actual_card_index}"] = None
             
             # For single-option questions, auto-select it
-            if len(options) == 1:
+            if len(display_options) == 1: # Use display_options
                 # If there's only one option, auto-select it
-                st.session_state.current_selection = options[0]
+                st.session_state.current_selection = display_options[0]
                 st.radio(
                     "Choose your answer (auto-selected as there's only one option):",
-                    options,
+                    display_options, # Use display_options
                     index=0,
                     key=radio_key,
                     disabled=st.session_state.show_feedback
@@ -263,16 +279,17 @@ if filtered_df is not None and not filtered_df.empty:
                 # Make sure we also update the previous selection tracker
                 st.session_state[f"prev_selection_{actual_card_index}"] = options[0]
             else:
-                # Calculate default index for the radio button
+                # Calculate default index for the radio button using display_options
                 try:
-                    default_index = options.index(st.session_state.current_selection) if st.session_state.current_selection in options else 0
+                    # Ensure current_selection is valid within the potentially shuffled list
+                    default_index = display_options.index(st.session_state.current_selection) if st.session_state.current_selection in display_options else 0
                 except (ValueError, IndexError):
-                    default_index = 0
-                
+                    default_index = 0 # Default to first option if current selection isn't found (e.g., after reshuffle)
+
                 # Display the radio button
                 selected_option = st.radio(
                     "Choose your answer:",
-                    options,
+                    display_options, # Use display_options
                     index=default_index,
                     key=radio_key,
                     disabled=st.session_state.show_feedback
@@ -312,6 +329,7 @@ if filtered_df is not None and not filtered_df.empty:
                     st.session_state.user_answer = None
                     st.session_state.show_feedback = False
                     st.session_state.current_selection = None
+                    st.session_state.current_randomized_options = None # Clear shuffled options for next card
                     # Clear checkbox-related keys
                     for key in st.session_state.keys():
                         if key.startswith("cb_"):
