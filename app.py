@@ -231,7 +231,8 @@ if filtered_df is not None and not filtered_df.empty:
 
                 # Define what happens when this specific checkbox changes
                 def on_change():
-                    is_checked = st.session_state[checkbox_key]
+                    # Safely get the checkbox state, defaulting to False if the key doesn't exist yet
+                    is_checked = st.session_state.get(checkbox_key, False)
                     # Make a copy of the current selection to avoid reference issues
                     current = list(st.session_state.current_selection) if isinstance(st.session_state.current_selection, list) else []
 
